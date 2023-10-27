@@ -11,13 +11,25 @@ import (
 type client chan<- string
 
 var (
-	entering = make(chan client)
-	leaving  = make(chan client)
-	messages = make(chan string)
+	entering    = make(chan client)
+	leaving     = make(chan client)
+	messages    = make(chan string)
+	botMessages = make(chan string) // Canal para mensagens de bots
 )
 
 func broadcaster() {
 	clients := make(map[client]bool)
+
+	// Bot que inverte as mensagens
+	go func() {
+		for msg := range botMessages {
+			invertedMsg := ""
+			for _, char := range msg {
+				invertedMsg = string(char) + invertedMsg
+			}
+			messages <- "[Bot Inverteu]: " + invertedMsg
+		}
+	}()
 
 	for {
 		select {
@@ -63,6 +75,10 @@ func handleConn(conn net.Conn) {
 		} else if strings.HasPrefix(input.Text(), "!msg ") {
 			partes := strings.SplitN(strings.TrimPrefix(input.Text(), "!msg "), " ", 2)
 			destinatario, mensagem := partes[0], partes[1]
+			if destinatario == "bot" {
+				botMessages <- mensagem // Envie a mensagem para botMessages
+			}
+
 			messages <- fmt.Sprintf("[Mensagem Privada de %s para %s]: %s", apelido, destinatario, mensagem)
 		} else {
 			messages <- apelido + ":" + input.Text()
